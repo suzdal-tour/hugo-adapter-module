@@ -1,42 +1,59 @@
-{{ $ACT_LOGIN := getenv "ACT_LOGIN" }}
-{{ $ACT_GUIDE := getenv "ACT_GUIDE" }}
+{{- /*
 
-{{ $headers := dict "headers" (dict "Cookie" (index (resources.GetRemote $ACT_LOGIN (dict "responseHeaders" (slice "Set-cookie"))).Data.Headers "Set-Cookie" )) }}
+Intended for inclusion by content adapters. Retrieves data from an external API and
+saves it to scratch under the specified name. For different sections, use different
+names to avoid concurrency issues, even if the data is the same.
 
-{{ $activities := newScratch }}
 
-<!---------------------------------------------------------------- 
-|                  Requests data for each guide                  | 
------------------------------------------------------------------>
+@context {object} root
+@context {string} name
+@context {string} auth [OPTIONAL]
+@context {string} data [OPTIONAL]
 
-{{ range $guide := $ACT_GUIDE | unmarshal }}
 
-<!---------------------------------------------------------------- 
-|      Requests the list of activities from an external API      | 
------------------------------------------------------------------>
+@example: {{ partial "_content.html" (dict "root" . "name" "%name%", "auth" "%auth%" "data" "%data%") }}
 
-    {{ $remote := resources.GetRemote (replace $guide.list_url "{id}" $guide.id) $headers | unmarshal }}
+*/}}
 
-<!---------------------------------------------------------------- 
-|      Requests info for each activity from an external API      | 
------------------------------------------------------------------>
+{{ $ACT_AUTH := default (getenv "ACT_AUTH") .auth }}
+{{ $ACT_DATA := default (getenv "ACT_DATA") .data }}
+
+{{ $headers := dict "headers" (dict "Cookie" (index (resources.GetRemote $ACT_AUTH (dict "responseHeaders" (slice "Set-cookie"))).Data.Headers "Set-Cookie" )) }}
+
+{{ $records := newScratch }}
+
+<!--------------------------------------------------------------
+|                  Requests data for each row                  |
+--------------------------------------------------------------->
+
+{{ range $data := $ACT_DATA | unmarshal }}
+
+<!-------------------------------------------------------------
+|      Requests the list of records from an external API      |
+-------------------------------------------------------------->
+
+    {{ $remote := resources.GetRemote (replace $data.list_url "{id}" $data.id) $headers | unmarshal }}
+
+<!--------------------------------------------------------------
+|      Requests info for each record from an external API      |
+--------------------------------------------------------------->
 
     {{ range $remote.results }}
-        {{ $activities.Set (.id | string) (merge
-            (resources.GetRemote (replace $guide.info_url "{id}" .id) $headers | unmarshal)
-            (resources.GetRemote (replace $guide.slot_url "{id}" .id) $headers | unmarshal)) }}
+        {{ $records.Set (.id | string) (merge
+            (resources.GetRemote (replace $data.info_url "{id}" .id) $headers | unmarshal)
+            (resources.GetRemote (replace $data.slot_url "{id}" .id) $headers | unmarshal)) }}
     {{ end }}
 
 {{ end }}
 
-<!----------------------------------------------------------------  
-|            Merges remote activities with local ones            | 
------------------------------------------------------------------>
+<!-------------------------------------------------------------
+|            Merges remote records with local ones            |
+-------------------------------------------------------------->
 
-{{ $activities = merge $activities.Values (default dict .Site.Data.activities) }}
+{{ $records = merge $records.Values (default dict .root.Site.Data.activities) }}
 
-<!----------------------------------------------------------------  
-|          Saves activities to global storage for reuse          | 
------------------------------------------------------------------>
+<!-------------------------------------------------------------
+|          Saves records to global storage for reuse          |
+-------------------------------------------------------------->
 
-{{ hugo.Store.Set "activities" $activities }}
+{{ hugo.Store.Set .name $records }}

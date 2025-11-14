@@ -1,18 +1,16 @@
-{{ $activities := hugo.Store.Get "activities" }}
+{{ $records := hugo.Store.Get .name}}
 
-<!---------------------------------------------------------------- 
-|                 Initializes the activity index                 |
-|                 to form correct navigation and                 |
-|                 styles based on object sorting                 |
------------------------------------------------------------------>
+<!--------------------------------------------------------------
+|                   Index of the current row                   |
+--------------------------------------------------------------->
 
 {{ $index := -1 }}
 
-<!----------------------------------------------------------------  
-|                       Renders components                       | 
------------------------------------------------------------------>
+<!--------------------------------------------------------------
+|                     Renders the template                     |
+--------------------------------------------------------------->
 
-{{ range $activities }}
+{{ range $records }}
     {{ if eq .status "active" }}
         {{ partial $.template (merge . (dict "odd" (modBool ($index = add $index 1) 2) "index" $index)) }}
     {{ end }}
